@@ -136,7 +136,8 @@ typedef enum {
     MUS_MP3_MAD_UNUSED,
     MUS_FLAC,
     MUS_MODPLUG_UNUSED,
-    MUS_OPUS
+    MUS_OPUS,
+    MUS_GME
 } Mix_MusicType;
 
 /* The internal format for a music chunk interpreted via mikmod */
@@ -619,6 +620,10 @@ extern DECLSPEC int SDLCALL Mix_PausedMusic(void);
    Only for MOD music formats.
  */
 extern DECLSPEC int SDLCALL Mix_ModMusicJumpToOrder(int order);
+
+/* Tracks */
+extern DECLSPEC void SDLCALL Mix_StartTrack(int track);
+extern DECLSPEC int SDLCALL Mix_GetNumTracks(Mix_Music *music);
 
 /* Set the current position in the music stream.
    This returns 0 if successful, or -1 if it failed or isn't implemented.
