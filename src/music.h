@@ -42,6 +42,7 @@ typedef enum
     MIX_MUSIC_FLAC,
     MIX_MUSIC_OPUS,
     MIX_MUSIC_LIBXMP,
+    MIX_MUSIC_GME,
     MIX_MUSIC_LAST
 } Mix_MusicAPI;
 
@@ -152,6 +153,11 @@ typedef struct
     /* Unload the library */
     void (*Unload)(void);
 
+    /* Start a specific track */
+    int (*StartTrack)(void *music, int track);
+
+    /* Get number of tracks. Returns -1 if not applicable */
+    int (*GetNumTracks)(void *music);
 } Mix_MusicInterface;
 
 
