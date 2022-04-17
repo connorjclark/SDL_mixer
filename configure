@@ -943,6 +943,7 @@ enable_music_mp3_mpg123
 enable_music_mp3_mpg123_shared
 enable_music_opus
 enable_music_opus_shared
+enable_music_gme
 '
       ac_precious_vars='build_alias
 host_alias
@@ -17278,6 +17279,15 @@ $as_echo "$as_me: WARNING: *** Unable to find FLAC library (http://flac.sourcefo
 $as_echo "$as_me: WARNING: FLAC support disabled" >&2;}
     fi
 fi
+
+# Check whether --enable-music-gme was given.
+if test "${enable_music_gme+set}" = set; then :
+  enableval=$enable_music_gme;
+else
+  enable_music_gme=yes
+fi
+# ???
+
 
 # Check whether --enable-music-mp3 was given.
 if test "${enable_music_mp3+set}" = set; then :
