@@ -134,32 +134,12 @@ static void GME_Unload(void)
     --gme.loaded;
 }
 
-/* Global flags which are applying on initializing of GME player with a file */
-typedef struct {
-    int track_number;
-    int echo_disable;
-    double tempo;
-    double gain;
-} Gme_Setup;
-
-static Gme_Setup gme_setup = {
-    0, 0, 1.0, 1.0
-};
-
-static void GME_SetDefault(Gme_Setup *setup)
-{
-    setup->track_number = 0;
-    setup->echo_disable = 0;
-    setup->tempo = 1.0;
-    setup->gain = 1.0;
-}
-
-
 /* This file supports Game Music Emulator music streams */
 typedef struct
 {
     int play_count;
     Music_Emu* game_emu;
+    int freesrc;
     SDL_bool has_track_length;
     int echo_disabled;
     int track_length;
@@ -214,78 +194,6 @@ int GME_GetVolume(void *music_p)
     return (int)v;
 }
 
-static void process_args(const char *args, Gme_Setup *setup)
-{
-#define ARG_BUFFER_SIZE    1024
-    char arg[ARG_BUFFER_SIZE];
-    char type = '-';
-    size_t maxlen = 0;
-    size_t i, j = 0;
-    /* first value is an integer without prefox sign. So, begin the scan with opened value state */
-    int value_opened = 1;
-
-    if (args == NULL) {
-        return;
-    }
-    maxlen = SDL_strlen(args);
-    if (maxlen == 0) {
-        return;
-    }
-
-    maxlen += 1;
-    GME_SetDefault(setup);
-
-    for (i = 0; i < maxlen; i++) {
-        char c = args[i];
-        if (value_opened == 1) {
-            if ((c == ';') || (c == '\0')) {
-                int value;
-                arg[j] = '\0';
-                value = SDL_atoi(arg);
-                switch(type)
-                {
-                case '-':
-                    setup->track_number = value;
-                    break;
-                case 'e':
-                    setup->echo_disable = value;
-                    break;
-                case 't':
-                    if (arg[0] == '=') {
-                        setup->tempo = SDL_strtod(arg + 1, NULL);
-                        if (setup->tempo <= 0.0) {
-                            setup->tempo = 1.0;
-                        }
-                    }
-                    break;
-                case 'g':
-                    if (arg[0] == '=') {
-                        setup->gain = SDL_strtod(arg + 1, NULL);
-                        if (setup->gain < 0.0) {
-                            setup->gain = 1.0;
-                        }
-                    }
-                    break;
-                case '\0':
-                    break;
-                default:
-                    break;
-                }
-                value_opened = 0;
-            }
-            arg[j++] = c;
-        } else {
-            if (c == '\0') {
-                return;
-            }
-            type = c;
-            value_opened = 1;
-            j = 0;
-        }
-    }
-#undef ARG_BUFFER_SIZE
-}
-
 int initialize_from_track_info(GME_Music *music, int track)
 {
     gme_info_t *musInfo;
@@ -334,12 +242,11 @@ int initialize_from_track_info(GME_Music *music, int track)
     return 0;
 }
 
-GME_Music *GME_LoadSongRW(SDL_RWops *src, const char *args)
+static void *GME_CreateFromRW(struct SDL_RWops *src, int freesrc)
 {
     void *mem = 0;
     size_t size;
     GME_Music *music;
-    Gme_Setup setup = gme_setup;
     const char *err;
 
     if (src == NULL) {
@@ -347,12 +254,10 @@ GME_Music *GME_LoadSongRW(SDL_RWops *src, const char *args)
         return NULL;
     }
 
-    process_args(args, &setup);
-
     music = (GME_Music *)SDL_calloc(1, sizeof(GME_Music));
 
-    music->tempo = setup.tempo;
-    music->gain = setup.gain;
+    music->tempo = 1.0;
+    music->gain = 1.0;
 
     music->stream = SDL_NewAudioStream(AUDIO_S16SYS, 2, music_spec.freq,
                                        music_spec.format, music_spec.channels, music_spec.freq);
@@ -385,22 +290,12 @@ GME_Music *GME_LoadSongRW(SDL_RWops *src, const char *args)
         return NULL;
     }
 
-    if ((setup.track_number < 0) || (setup.track_number >= gme.gme_track_count(music->game_emu))) {
-        setup.track_number = gme.gme_track_count(music->game_emu) - 1;
-    }
-
     /* Set this flag BEFORE calling the gme_start_track() to fix an inability to loop forever */
     if (gme.gme_set_autoload_playback_limit) {
         gme.gme_set_autoload_playback_limit(music->game_emu, 0);
     }
 
-    music->echo_disabled = -1;
-    if (gme.gme_disable_echo) {
-        gme.gme_disable_echo(music->game_emu, setup.echo_disable);
-        music->echo_disabled = setup.echo_disable;
-    }
-
-    err = gme.gme_start_track(music->game_emu, setup.track_number);
+    err = gme.gme_start_track(music->game_emu, 0);
     if (err != 0) {
         GME_Delete(music);
         Mix_SetError("GME: %s", err);
@@ -410,34 +305,15 @@ GME_Music *GME_LoadSongRW(SDL_RWops *src, const char *args)
     gme.gme_set_tempo(music->game_emu, music->tempo);
 
     music->volume = MIX_MAX_VOLUME;
-    meta_tags_init(&music->tags);
 
-    if (initialize_from_track_info(music, setup.track_number) == -1) {
+    meta_tags_init(&music->tags);
+    if (initialize_from_track_info(music, 0) == -1) {
         GME_Delete(music);
         return NULL;
     }
 
+    music->freesrc = freesrc;
     return music;
-}
-
-/* Load a Game Music Emulators stream from an SDL_RWops object */
-static void *GME_new_RWEx(struct SDL_RWops *src, int freesrc, const char *extraSettings)
-{
-    GME_Music *gmeMusic;
-
-    gmeMusic = GME_LoadSongRW(src, extraSettings);
-    if (!gmeMusic) {
-        return NULL;
-    }
-    if (freesrc) {
-        SDL_RWclose(src);
-    }
-    return gmeMusic;
-}
-
-static void *GME_CreateFromRW(struct SDL_RWops *src, int freesrc)
-{
-    return GME_new_RWEx(src, freesrc, "0");
 }
 
 /* Start playback of a given Game Music Emulators stream */
@@ -500,8 +376,8 @@ static void GME_Delete(void *context)
 {
     GME_Music *music = (GME_Music*)context;
     if (music) {
-        // meta_tags_clear(&music->tags);
-        if (music->game_emu) {
+        meta_tags_clear(&music->tags);
+        if (music->game_emu && music->freesrc) {
             gme.gme_delete(music->game_emu);
             music->game_emu = NULL;
         }
@@ -590,6 +466,10 @@ static int GME_StartTrack(void *music_p, int track)
 {
     GME_Music *music = (GME_Music *)music_p;
     const char *err;
+
+    if ((track < 0) || (track >= gme.gme_track_count(music->game_emu))) {
+        track = gme.gme_track_count(music->game_emu) - 1;
+    }
 
     err = gme.gme_start_track(music->game_emu, track);
     if (err != 0) {
