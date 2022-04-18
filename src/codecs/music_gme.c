@@ -477,6 +477,8 @@ static int GME_StartTrack(void *music_p, int track)
         return -1;
     }
 
+    GME_Play(music, music->play_count);
+
     if (initialize_from_track_info(music, track) == -1) {
         return -1;
     }
