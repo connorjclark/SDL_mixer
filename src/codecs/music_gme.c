@@ -286,15 +286,61 @@ static void process_args(const char *args, Gme_Setup *setup)
 #undef ARG_BUFFER_SIZE
 }
 
+int initialize_from_track_info(GME_Music *music, int track)
+{
+    gme_info_t *musInfo;
+    SDL_bool has_loop_length = SDL_TRUE;
+    const char *err;
+
+    err = gme.gme_track_info(music->game_emu, &musInfo, track);
+    if (err != 0) {
+        Mix_SetError("GME: %s", err);
+        return -1;
+    }
+
+    music->track_length = musInfo->length;
+    music->intro_length = musInfo->intro_length;
+    music->loop_length = musInfo->loop_length;
+
+    music->has_track_length = SDL_TRUE;
+    if (music->track_length <= 0 ) {
+        music->track_length = (int)(2.5 * 60 * 1000);
+        music->has_track_length = SDL_FALSE;
+    }
+
+    if (music->intro_length < 0 ) {
+        music->intro_length = 0;
+    }
+    if (music->loop_length <= 0 ) {
+        if (music->track_length > 0) {
+            music->loop_length = music->track_length;
+        } else {
+            music->loop_length = (int)(2.5 * 60 * 1000);
+        }
+        has_loop_length = SDL_FALSE;
+    }
+
+    if (!music->has_track_length && has_loop_length) {
+        music->track_length = music->intro_length + music->loop_length;
+        music->has_track_length = SDL_TRUE;
+    }
+
+    meta_tags_set(&music->tags, MIX_META_TITLE, musInfo->song);
+    meta_tags_set(&music->tags, MIX_META_ARTIST, musInfo->author);
+    meta_tags_set(&music->tags, MIX_META_ALBUM, musInfo->game);
+    meta_tags_set(&music->tags, MIX_META_COPYRIGHT, musInfo->copyright);
+    gme.gme_free_info(musInfo);
+
+    return 0;
+}
+
 GME_Music *GME_LoadSongRW(SDL_RWops *src, const char *args)
 {
     void *mem = 0;
     size_t size;
-    gme_info_t *musInfo;
     GME_Music *music;
     Gme_Setup setup = gme_setup;
     const char *err;
-    SDL_bool has_loop_length = SDL_TRUE;
 
     if (src == NULL) {
         Mix_SetError("GME: Empty source given");
@@ -366,45 +412,10 @@ GME_Music *GME_LoadSongRW(SDL_RWops *src, const char *args)
     music->volume = MIX_MAX_VOLUME;
     meta_tags_init(&music->tags);
 
-    err = gme.gme_track_info(music->game_emu, &musInfo, setup.track_number);
-    if (err != 0) {
+    if (initialize_from_track_info(music, setup.track_number) == -1) {
         GME_Delete(music);
-        Mix_SetError("GME: %s", err);
         return NULL;
     }
-
-    music->track_length = musInfo->length;
-    music->intro_length = musInfo->intro_length;
-    music->loop_length = musInfo->loop_length;
-
-    music->has_track_length = SDL_TRUE;
-    if (music->track_length <= 0 ) {
-        music->track_length = (int)(2.5 * 60 * 1000);
-        music->has_track_length = SDL_FALSE;
-    }
-
-    if (music->intro_length < 0 ) {
-        music->intro_length = 0;
-    }
-    if (music->loop_length <= 0 ) {
-        if (music->track_length > 0) {
-            music->loop_length = music->track_length;
-        } else {
-            music->loop_length = (int)(2.5 * 60 * 1000);
-        }
-        has_loop_length = SDL_FALSE;
-    }
-
-    if (!music->has_track_length && has_loop_length) {
-        music->track_length = music->intro_length + music->loop_length;
-        music->has_track_length = SDL_TRUE;
-    }
-
-    meta_tags_set(&music->tags, MIX_META_TITLE, musInfo->song);
-    meta_tags_set(&music->tags, MIX_META_ARTIST, musInfo->author);
-    meta_tags_set(&music->tags, MIX_META_ALBUM, musInfo->game);
-    meta_tags_set(&music->tags, MIX_META_COPYRIGHT, musInfo->copyright);
-    gme.gme_free_info(musInfo);
 
     return music;
 }
@@ -578,7 +589,6 @@ static int GME_SetTrackMute(void *music_p, int track, int mute)
 static int GME_StartTrack(void *music_p, int track)
 {
     GME_Music *music = (GME_Music *)music_p;
-    gme_info_t *musInfo;
     const char *err;
 
     err = gme.gme_start_track(music->game_emu, track);
@@ -587,20 +597,9 @@ static int GME_StartTrack(void *music_p, int track)
         return -1;
     }
 
-    err = gme.gme_track_info(music->game_emu, &musInfo, track);
-    if (err != 0) {
-        Mix_SetError("GME: %s", err);
+    if (initialize_from_track_info(music, track) == -1) {
         return -1;
     }
-
-    music->track_length = musInfo->length;
-    music->intro_length = musInfo->intro_length;
-    music->loop_length = musInfo->loop_length;
-    meta_tags_set(&music->tags, MIX_META_TITLE, musInfo->song);
-    meta_tags_set(&music->tags, MIX_META_ARTIST, musInfo->author);
-    meta_tags_set(&music->tags, MIX_META_ALBUM, musInfo->game);
-    meta_tags_set(&music->tags, MIX_META_COPYRIGHT, musInfo->copyright);
-    gme.gme_free_info(musInfo);
 
     return 0;
 }
