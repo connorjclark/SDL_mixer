@@ -196,10 +196,10 @@ int  _Mix_GME_GetSpcEchoDisabled(void *music_p)
     return ret;
 }
 
-static void GME_delete(void *context);
+static void GME_Delete(void *context);
 
 /* Set the volume for a GME stream */
-void GME_setvolume(void *music_p, int volume)
+void GME_SetVolume(void *music_p, int volume)
 {
     GME_Music *music = (GME_Music*)music_p;
     double v = SDL_floor(((double)(volume) * music->gain) + 0.5);
@@ -207,7 +207,7 @@ void GME_setvolume(void *music_p, int volume)
 }
 
 /* Get the volume for a GME stream */
-int GME_getvolume(void *music_p)
+int GME_GetVolume(void *music_p)
 {
     GME_Music *music = (GME_Music*)music_p;
     double v = SDL_floor(((double)(music->volume) / music->gain) + 0.5);
@@ -311,7 +311,7 @@ GME_Music *GME_LoadSongRW(SDL_RWops *src, const char *args)
     music->stream = SDL_NewAudioStream(AUDIO_S16SYS, 2, music_spec.freq,
                                        music_spec.format, music_spec.channels, music_spec.freq);
     if (!music->stream) {
-        GME_delete(music);
+        GME_Delete(music);
         return NULL;
     }
 
@@ -319,7 +319,7 @@ GME_Music *GME_LoadSongRW(SDL_RWops *src, const char *args)
     music->buffer = SDL_malloc(music->buffer_size);
     if (!music->buffer) {
         SDL_OutOfMemory();
-        GME_delete(music);
+        GME_Delete(music);
         return NULL;
     }
 
@@ -329,13 +329,13 @@ GME_Music *GME_LoadSongRW(SDL_RWops *src, const char *args)
         err = gme.gme_open_data(mem, size, &music->game_emu, music_spec.freq);
         SDL_free(mem);
         if (err != 0) {
-            GME_delete(music);
+            GME_Delete(music);
             Mix_SetError("GME: %s", err);
             return NULL;
         }
     } else {
         SDL_OutOfMemory();
-        GME_delete(music);
+        GME_Delete(music);
         return NULL;
     }
 
@@ -356,7 +356,7 @@ GME_Music *GME_LoadSongRW(SDL_RWops *src, const char *args)
 
     err = gme.gme_start_track(music->game_emu, setup.track_number);
     if (err != 0) {
-        GME_delete(music);
+        GME_Delete(music);
         Mix_SetError("GME: %s", err);
         return NULL;
     }
@@ -368,7 +368,7 @@ GME_Music *GME_LoadSongRW(SDL_RWops *src, const char *args)
 
     err = gme.gme_track_info(music->game_emu, &musInfo, setup.track_number);
     if (err != 0) {
-        GME_delete(music);
+        GME_Delete(music);
         Mix_SetError("GME: %s", err);
         return NULL;
     }
@@ -424,13 +424,13 @@ static void *GME_new_RWEx(struct SDL_RWops *src, int freesrc, const char *extraS
     return gmeMusic;
 }
 
-static void *GME_new_RW(struct SDL_RWops *src, int freesrc)
+static void *GME_CreateFromRW(struct SDL_RWops *src, int freesrc)
 {
     return GME_new_RWEx(src, freesrc, "0");
 }
 
 /* Start playback of a given Game Music Emulators stream */
-static int GME_play(void *music_p, int play_count)
+static int GME_Play(void *music_p, int play_count)
 {
     GME_Music *music = (GME_Music*)music_p;
     int fade_start;
@@ -477,15 +477,15 @@ static int GME_GetSome(void *context, void *data, int bytes, SDL_bool *done)
     return 0;
 }
 
-/* Play some of a stream previously started with GME_play() */
-static int GME_playAudio(void *music_p, void *data, int bytes)
+/* Play some of a stream previously started with GME_Play() */
+static int GME_PlayAudio(void *music_p, void *data, int bytes)
 {
     GME_Music *music = (GME_Music*)music_p;
     return music_pcm_getaudio(music_p, data, bytes, music->volume, GME_GetSome);
 }
 
 /* Close the given Game Music Emulators stream */
-static void GME_delete(void *context)
+static void GME_Delete(void *context)
 {
     GME_Music *music = (GME_Music*)context;
     if (music) {
@@ -622,25 +622,25 @@ Mix_MusicInterface Mix_MusicInterface_GME =
 
     GME_Load,
     NULL,   /* Open */
-    GME_new_RW,
+    GME_CreateFromRW,
     NULL,   /* CreateFromFile */
-    GME_setvolume,
-    GME_getvolume,
-    GME_play,
+    GME_SetVolume,
+    GME_GetVolume,
+    GME_Play,
     NULL,   /* IsPlaying */
-    GME_playAudio,
+    GME_PlayAudio,
     NULL,       /* Jump */
     GME_Seek,
-    GME_Tell,   /* Tell [MIXER-X]*/
+    GME_Tell,
     GME_Duration,
-    NULL,   /* LoopStart [MIXER-X]*/
-    NULL,   /* LoopEnd [MIXER-X]*/
-    NULL,   /* LoopLength [MIXER-X]*/
-    GME_GetMetaTag,/* GetMetaTag [MIXER-X]*/
+    NULL,
+    NULL,
+    NULL,
+    GME_GetMetaTag,
     NULL,   /* Pause */
     NULL,   /* Resume */
     NULL,   /* Stop */
-    GME_delete,
+    GME_Delete,
     NULL,   /* Close */
     GME_Unload,
 
