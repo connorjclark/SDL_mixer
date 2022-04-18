@@ -669,6 +669,12 @@ Mix_Music *Mix_LoadMUS(const char *file)
                     SDL_strcasecmp(ext, "WOW") == 0 ||
                     SDL_strcasecmp(ext, "XM") == 0) {
             type = MUS_MOD;
+        } else if (SDL_strcasecmp(ext, "GBS") == 0 ||
+                    SDL_strcasecmp(ext, "M3U") == 0 ||
+                    SDL_strcasecmp(ext, "NSF") == 0 ||
+                    SDL_strcasecmp(ext, "SPC") == 0 ||
+                    SDL_strcasecmp(ext, "VGM") == 0) {
+            type = MUS_GME;
         }
     }
     return Mix_LoadMUSType_RW(src, type, SDL_TRUE);
