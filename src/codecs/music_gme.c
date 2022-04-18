@@ -504,9 +504,9 @@ static void GME_delete(void *context)
     }
 }
 
+// TODO: this should accept a track number, not assume the current track!
 static const char* GME_GetMetaTag(void *context, Mix_MusicMetaTag tag_type)
 {
-    // TODO: update tags on set track
     GME_Music *music = (GME_Music *)context;
     return meta_tags_get(&music->tags, tag_type);
 }
@@ -578,20 +578,37 @@ static int GME_SetTrackMute(void *music_p, int track, int mute)
 static int GME_StartTrack(void *music_p, int track)
 {
     GME_Music *music = (GME_Music *)music_p;
-    if (music) {
-        gme.gme_start_track(music->game_emu, track);
-        return 0;
+    gme_info_t *musInfo;
+    const char *err;
+
+    err = gme.gme_start_track(music->game_emu, track);
+    if (err != 0) {
+        Mix_SetError("GME: %s", err);
+        return -1;
     }
-    return -1;
+
+    err = gme.gme_track_info(music->game_emu, &musInfo, track);
+    if (err != 0) {
+        Mix_SetError("GME: %s", err);
+        return -1;
+    }
+
+    music->track_length = musInfo->length;
+    music->intro_length = musInfo->intro_length;
+    music->loop_length = musInfo->loop_length;
+    meta_tags_set(&music->tags, MIX_META_TITLE, musInfo->song);
+    meta_tags_set(&music->tags, MIX_META_ARTIST, musInfo->author);
+    meta_tags_set(&music->tags, MIX_META_ALBUM, musInfo->game);
+    meta_tags_set(&music->tags, MIX_META_COPYRIGHT, musInfo->copyright);
+    gme.gme_free_info(musInfo);
+
+    return 0;
 }
 
 static int GME_GetNumTracks(void *music_p)
 {
     GME_Music *music = (GME_Music *)music_p;
-    if (music) {
-        return gme.gme_track_count(music->game_emu);
-    }
-    return -1;
+    return gme.gme_track_count(music->game_emu);
 }
 
 
