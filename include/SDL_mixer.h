@@ -2472,6 +2472,23 @@ extern DECLSPEC double SDLCALL Mix_GetMusicPosition(Mix_Music *music);
 extern DECLSPEC double SDLCALL Mix_MusicDuration(Mix_Music *music);
 
 /**
+ * TODO ! write this
+ * Set the current position in the music stream, in seconds.
+ *
+ * To convert from milliseconds, divide by 1000.0.
+ *
+ * This function is only implemented for MOD music formats (set pattern order
+ * number) and for WAV, OGG, FLAC, MP3, and MODPLUG music at the moment.
+ *
+ * \param position the new position, in seconds (as a double).
+ * \returns 0 if successful, or -1 if it failed or not implemented.
+ *
+ * \since This function is available since SDL_mixer 2.0.0.
+ */
+extern DECLSPEC int SDLCALL Mix_SetMusicBeat(int beat);
+extern DECLSPEC int SDLCALL Mix_GetMusicBeat();
+
+/**
  * Get the loop start time position of music stream, in seconds.
  *
  * To convert to milliseconds, multiply by 1000.0.
